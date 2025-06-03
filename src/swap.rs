@@ -35,7 +35,7 @@ impl SwapInstructionData {
     }
 }
 
-/// Выполняет swap через программу Meteora, добавляя ComputeBudgetInstruction для поддержки tip'а
+/// Выполняет swap через программу Meteora
 ///
 /// Отправляет транзакцию через:
 /// 1. Стандартный Solana RPC
@@ -54,7 +54,7 @@ impl SwapInstructionData {
 /// * `token_program` — SPL Token программа
 /// * `amount_in` — количество входных токенов
 /// * `min_out` — минимальное количество выходных токенов
-/// * `tip` — размер чаевых (в microlamports) для повышения приоритета у релейеров
+/// * `tip` — повышени приоритета
 pub async fn execute_swap(
     rpc: Arc<RpcClient>,
     payer: &Keypair,

@@ -4,11 +4,7 @@ use serde_json::{json, Value};
 
 use crate::config::{BLOXROUTE_URL, BLOXROUTE_API_KEY};
 
-/// Отправляет base64-сериализованную транзакцию в Bloxroute MEV endpoint для Solana.
-///
-/// Используется для приоритетной обработки транзакции через релейер.
-/// Требует, чтобы в саму транзакцию был встроен `ComputeBudgetInstruction::set_compute_unit_price(tip)`,
-/// иначе `tip` не будет иметь эффекта.
+/// Отправляет base64-сериализованную транзакцию в Bloxroute для Solana
 ///
 /// # Аргументы:
 /// - `tx_base64`: сериализованная транзакция в формате base64
