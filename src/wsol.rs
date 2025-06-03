@@ -17,6 +17,22 @@ use spl_token::{
 
 use crate::config::WSOL_MINT;
 
+/// Создаёт временный токен-аккаунт с обёрнутым SOL (WSOL), инициализированный под заданного владельца.
+///
+/// Аккаунт создаётся как обычный SPL-токен-аккаунт, привязанный к `WSOL_MINT`, с пополнением нативными SOL.
+/// После этого выполняется `sync_native`, чтобы привести баланс WSOL в соответствие с нативным.
+///
+/// # Аргументы:
+/// - `rpc`: асинхронный клиент RPC
+/// - `payer`: ключ плательщика (владелец и подписант)
+///
+/// # Возвращает:
+/// - `Ok(Pubkey)` — адрес созданного WSOL-аккаунта
+/// - `Err` — при ошибке создания/инициализации
+///
+/// # Примечание:
+/// Этот аккаунт **не освобождается автоматически**, и если не сделать `close_account`
+/// после использования, средства (и rent) останутся занятыми.
 pub async fn ensure_wsol_account(
     rpc: &RpcClient,
     payer: &Keypair,
@@ -24,6 +40,7 @@ pub async fn ensure_wsol_account(
     let wsol_mint = Pubkey::from_str(WSOL_MINT)?;
 
     let token_account = Keypair::new();
+
     let rent_exemption = rpc
         .get_minimum_balance_for_rent_exemption(Account::LEN)
         .await?;
@@ -46,6 +63,7 @@ pub async fn ensure_wsol_account(
     let sync_ix = sync_native(&spl_token::id(), &token_account.pubkey())?;
 
     let recent_blockhash = rpc.get_latest_blockhash().await?;
+
     let tx = Transaction::new_signed_with_payer(
         &[create_acc_ix, init_acc_ix, sync_ix],
         Some(&payer.pubkey()),

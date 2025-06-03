@@ -5,9 +5,9 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
 use bincode::serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use crate::bloxroute::send_to_bloxroute;
-use crate::nextblock::send_to_nextblock;
+
 use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -15,6 +15,8 @@ use solana_sdk::{
 };
 use tokio::join;
 
+use crate::bloxroute::send_to_bloxroute;
+use crate::nextblock::send_to_nextblock;
 use crate::config::METEORA_PROGRAM_ID;
 
 #[derive(Debug)]
@@ -26,13 +28,33 @@ struct SwapInstructionData {
 impl SwapInstructionData {
     pub fn serialize(&self) -> Vec<u8> {
         let mut buf = Vec::new();
-        buf.push(4);
+        buf.push(4); // opcode для swap'а в Meteora
         buf.extend(&self.amount_in.to_le_bytes());
         buf.extend(&self.minimum_amount_out.to_le_bytes());
         buf
     }
 }
 
+/// Выполняет swap через программу Meteora, добавляя ComputeBudgetInstruction для поддержки tip'а
+///
+/// Отправляет транзакцию через:
+/// 1. Стандартный Solana RPC
+/// 2. Bloxroute MEV endpoint
+/// 3. NextBlock endpoint
+///
+/// # Аргументы
+/// * `rpc` — RPC клиент
+/// * `payer` — аккаунт, подписывающий транзакцию
+/// * `_pool` — публичный ключ пула (не используется напрямую, но может быть полезен логически)
+/// * `user_source` — аккаунт, с которого списываются токены
+/// * `user_destination` — аккаунт, на который зачисляются токены
+/// * `pool_source` — аккаунт пула (откуда берётся токен)
+/// * `pool_destination` — аккаунт пула (куда кладётся токен)
+/// * `pool_authority` — authority пула
+/// * `token_program` — SPL Token программа
+/// * `amount_in` — количество входных токенов
+/// * `min_out` — минимальное количество выходных токенов
+/// * `tip` — размер чаевых (в microlamports) для повышения приоритета у релейеров
 pub async fn execute_swap(
     rpc: Arc<RpcClient>,
     payer: &Keypair,
@@ -55,7 +77,8 @@ pub async fn execute_swap(
     }
     .serialize();
 
-    let ix = Instruction {
+    // Основная инструкция swap через Meteora
+    let swap_ix = Instruction {
         program_id: Pubkey::from_str(METEORA_PROGRAM_ID)?,
         accounts: vec![
             AccountMeta::new(user_source, false),
@@ -68,8 +91,17 @@ pub async fn execute_swap(
         data: ix_data,
     };
 
+    let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_price(tip);
+
     let blockhash = rpc.get_latest_blockhash().await?;
-    let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[compute_budget_ix, swap_ix],
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
+
     let versioned_tx = VersionedTransaction::from(tx);
 
     let tx_bytes = serialize(&versioned_tx)?;

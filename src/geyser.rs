@@ -27,6 +27,15 @@ fn is_initialize_instruction(data: &[u8]) -> bool {
     !data.is_empty() && data[0] == 2
 }
 
+/// Подписывается на поток транзакций из Geyser GRPC и отслеживает
+/// появление новых пулов с участием WSOL, чтобы автоматически выполнить swap.
+///
+/// # Аргументы
+/// * `rpc_client` — клиент RPC для взаимодействия с Solana.
+/// * `payer` — ключ, с которого отправляется транзакция swap.
+///
+/// # Возвращает
+/// `Result<()>` — успешное выполнение или ошибка при подписке / swap.
 pub async fn monitor_liquidity_additions(
     rpc_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
@@ -36,6 +45,7 @@ pub async fn monitor_liquidity_additions(
     let grpc_builder = GeyserGrpcClient::build_from_static(GRPC_URL)
         .tls_config(ClientTlsConfig::new().with_native_roots())?;
 
+    // Подключение к GRPC серверу и подписка
     let mut client = grpc_builder.connect().await?;
     let (mut sender, mut stream) = client.subscribe().await?;
 
@@ -50,6 +60,7 @@ pub async fn monitor_liquidity_additions(
 
     let seen_pools: Arc<RwLock<HashSet<Pubkey>>> = Arc::new(RwLock::new(HashSet::new()));
 
+    // Основной цикл обработки входящих транзакций
     while let Some(resp) = stream.next().await {
         match resp {
             Ok(SubscribeUpdate {
@@ -73,6 +84,7 @@ pub async fn monitor_liquidity_additions(
                                         continue;
                                     }
 
+                                    // Определение, есть ли WSOL в паре токенов
                                     let token_a = keys[accs[8] as usize];
                                     let token_b = keys[accs[9] as usize];
 
@@ -88,6 +100,7 @@ pub async fn monitor_liquidity_additions(
                                         continue;
                                     }
 
+                                    // Проверка, был ли пул уже обработан
                                     let pool = keys[accs[2] as usize];
                                     let mut seen = seen_pools.write().unwrap();
                                     if seen.contains(&pool) {
@@ -105,6 +118,7 @@ pub async fn monitor_liquidity_additions(
                                     let pool_auth = keys[accs[4] as usize];
                                     let token_prog = keys[accs[5] as usize];
 
+                                    // Выполнение свапа
                                     let _ = execute_swap(
                                         rpc_client.clone(),
                                         &payer,

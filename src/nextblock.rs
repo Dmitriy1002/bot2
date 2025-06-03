@@ -1,10 +1,24 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde_json::json;
+
 use crate::config::{NEXTBLOCK_URL, NEXTBLOCK_API_KEY};
 
+/// Отправляет сериализованную транзакцию в NextBlock релейер.
+///
+/// Это позволяет добавить транзакцию в private mempool и использовать `tip`
+/// (который должен также присутствовать в `ComputeBudgetInstruction` внутри самой транзакции).
+///
+/// # Аргументы:
+/// - `tx_base64`: транзакция в base64 (VersionedTransaction, сериализованная и закодированная)
+/// - `tip`: чаевые в микролампортах, для приоритизации в блоке
+///
+/// # Возвращает:
+/// - `Ok(())` при успешной отправке
+/// - `Err` при ошибке сети или некорректном ответе
 pub async fn send_to_nextblock(tx_base64: &str, tip: u64) -> Result<()> {
     let client = Client::new();
+
     let body = json!({
         "tx": tx_base64,
         "meta": {
@@ -20,5 +34,6 @@ pub async fn send_to_nextblock(tx_base64: &str, tip: u64) -> Result<()> {
         .await?;
 
     println!("NextBlock response: {:?}", res.text().await?);
+
     Ok(())
 }
