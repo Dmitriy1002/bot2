@@ -10,7 +10,10 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use spl_token::instruction::{initialize_account, sync_native};
+use spl_token::{
+    instruction::{initialize_account, sync_native},
+    state::Account,
+};
 
 use crate::config::WSOL_MINT;
 
@@ -22,14 +25,14 @@ pub async fn ensure_wsol_account(
 
     let token_account = Keypair::new();
     let rent_exemption = rpc
-        .get_minimum_balance_for_rent_exemption(spl_token::state::Account::LEN)
+        .get_minimum_balance_for_rent_exemption(Account::LEN)
         .await?;
 
     let create_acc_ix = system_instruction::create_account(
         &payer.pubkey(),
         &token_account.pubkey(),
         rent_exemption + LAMPORTS_PER_SOL / 10,
-        spl_token::state::Account::LEN as u64,
+        Account::LEN as u64,
         &spl_token::id(),
     );
 

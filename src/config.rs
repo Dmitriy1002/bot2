@@ -10,3 +10,5 @@ pub const NEXTBLOCK_API_KEY: &str = "entry1742492086-2HBDaHE5gh%2BhMT3DybovkplWH
 pub const METEORA_PROGRAM_ID: &str = "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB";
 pub const WSOL_MINT: &str = "So11111111111111111111111111111111111111112";
 pub const GRPC_URL: &str = "https://grpc.ny.shyft.to";
+
+pub const RELAYER_TIP_LAMPORTS: u64 = 10_000;

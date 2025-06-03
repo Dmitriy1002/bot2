@@ -1,4 +1,4 @@
-use solana_sdk::{signature::Keypair, signer::Signer};
+use solana_sdk::signature::Keypair;
 use anyhow::{Result, Context};
 use bs58;
 
